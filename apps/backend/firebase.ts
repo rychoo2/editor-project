@@ -5,7 +5,7 @@ import serviceAccount from './serviceAccountKey.json'
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://databaseName.firebaseio.com"
+  databaseURL: 'https://rychoo2-fadd2.firebaseio.com'
 })
 
-export default admin.database()
+export default admin.firestore()
