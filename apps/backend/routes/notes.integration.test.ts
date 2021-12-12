@@ -74,6 +74,18 @@ describe('Notes controller', () => {
       expect(messages).toHaveLength(2)
       expect(messages[1]).toHaveProperty('title', 'New Test Title')
     })
+
+    it('saves new value sent to websocket if non empty', async () => {
+      const { client, messages } = await createSocketClient(
+        PORT,
+        '/api/notes/n1',
+        2
+      )
+      client.send(JSON.stringify({ ...NOTE_1, title: 'Another Test Title' }))
+      await waitForSocketState(client, client.CLOSED)
+      expect(messages).toHaveLength(2)
+      expect(messages[1]).toHaveProperty('title', 'Another Test Title')
+    })
   })
 })
 

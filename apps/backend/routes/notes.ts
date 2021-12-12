@@ -39,12 +39,18 @@ const noteHandler: WebsocketRequestHandler = (ws, req) => {
   const document = firebase.collection('notes').doc(req.params.id)
   const closeHandle = document.onSnapshot((doc) => {
     const result = doc.data() as NoteResponse
-    return ws.send(JSON.stringify(doc.data()))
+    return ws.send(JSON.stringify(result))
   })
 
-  ws.on('message', async () => {
-    const doc = await document.get()
-    ws.send(JSON.stringify(doc.data()))
+  ws.on('message', async (data) => {
+    const msg = data.toString()
+    if (msg) {
+      const note = JSON.parse(msg) as NoteResponse
+      await document.set(note)
+    } else {
+      const doc = await document.get()
+      ws.send(JSON.stringify(doc.data()))
+    }
   })
 
   ws.on('close', () => {

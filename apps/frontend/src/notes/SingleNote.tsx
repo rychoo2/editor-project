@@ -1,16 +1,19 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Editor } from '../editor'
 import { useNote } from './hooks'
 import { ReadyState } from 'react-use-websocket'
 
 import { Paper, TextField, Badge, BadgeTypeMap } from '@mui/material'
+import { Descendant } from 'slate'
+import { preventOverflow } from '@popperjs/core'
+import { off } from 'process'
 
 interface SingleNoteProps {
   id: string
 }
 
 const Home: React.FC<SingleNoteProps> = ({ id }) => {
-  const { note, readyState } = useNote(id)
+  const { note, readyState, sendMessage } = useNote(id)
 
   const connectionStatusColor = {
     [ReadyState.CONNECTING]: 'info',
@@ -20,11 +23,33 @@ const Home: React.FC<SingleNoteProps> = ({ id }) => {
     [ReadyState.UNINSTANTIATED]: 'error',
   }[readyState] as BadgeTypeMap['props']['color']
 
-  return note ? (
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState([] as Descendant[]);
+
+  useEffect(() => {
+    if (note) {
+      if(note.title != title){
+        note.title = title;
+        sendMessage(JSON.stringify(note))
+        console.log("content update", note)
+      }
+    }
+  }, [title])
+
+  useEffect(() => {
+    if(note){
+      console.log("content update from outside", note)
+      setTitle(note.title)
+      setContent(note.content)
+    }
+  }, [note])
+
+  return content && title ? (
     <>
       <Badge color={connectionStatusColor} variant="dot" sx={{ width: '100%' }}>
         <TextField
-          value={note.title}
+          value={title}
+          onChange={e => setTitle(e.target.value)}
           variant="standard"
           fullWidth={true}
           inputProps={{ style: { fontSize: 32, color: '#666' } }}
@@ -38,7 +63,7 @@ const Home: React.FC<SingleNoteProps> = ({ id }) => {
           flexDirection: 'column',
         }}
       >
-        <Editor initialValue={note.content} />
+        <Editor initialValue={content} onChange={setContent} />
       </Paper>
     </>
   ) : null

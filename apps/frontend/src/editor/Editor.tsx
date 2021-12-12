@@ -1,6 +1,6 @@
 // @refresh reset // Fixes hot refresh errors in development https://github.com/ianstormtaylor/slate/issues/3477
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createEditor, Descendant, BaseEditor } from 'slate'
 import { withHistory, HistoryEditor } from 'slate-history'
 import { handleHotkeys } from './helpers'
@@ -23,13 +23,20 @@ declare module 'slate' {
 interface EditorProps {
   initialValue?: Descendant[]
   placeholder?: string
+  onChange?: (v: Descendant[]) => void
 }
 
-export const Editor: React.FC<EditorProps> = ({ initialValue = [], placeholder }) => {
+export const Editor: React.FC<EditorProps> = ({ initialValue = [], placeholder, onChange }) => {
   const [value, setValue] = useState<Array<Descendant>>(initialValue)
   const renderElement = useCallback(props => <CustomElement {...props} />, [])
   const renderLeaf = useCallback(props => <CustomLeaf {...props} />, [])
   const editor = useMemo(() => withHistory(withReact(createEditor())), [])
+  
+  useEffect(() => {
+    if(onChange) {
+      onChange(value)
+    }
+  }, [value])
 
   return (
     <Slate editor={editor} value={value} onChange={value => setValue(value)}>
