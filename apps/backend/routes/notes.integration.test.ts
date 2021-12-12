@@ -8,6 +8,7 @@ import {
   createSocketClient,
   waitForSocketState
 } from '../helpers/webSocketTestUtils'
+import _ from 'lodash'
 
 const PORT = 3002
 
@@ -85,6 +86,54 @@ describe('Notes controller', () => {
       await waitForSocketState(client, client.CLOSED)
       expect(messages).toHaveLength(2)
       expect(messages[1]).toHaveProperty('title', 'Another Test Title')
+    })
+
+    it('sends updated value to other connected clients', async () => {
+      const { client: client1, messages: messages1 } = await createSocketClient(
+        PORT,
+        '/api/notes/n1',
+        2
+      )
+      const { client: client2, messages: messages2 } = await createSocketClient(
+        PORT,
+        '/api/notes/n1',
+        2
+      )
+      client1.send(JSON.stringify({ ...NOTE_1, title: 'Updated Test Title' }))
+      await waitForSocketState(client1, client1.CLOSED)
+      await waitForSocketState(client2, client2.CLOSED)
+      expect(messages2).toHaveLength(2)
+      expect(messages2[1]).toHaveProperty('title', 'Updated Test Title')
+    })
+
+    it('merges simultanous changes from connected clients', async () => {
+      const { client: client1, messages: messages1 } = await createSocketClient(
+        PORT,
+        '/api/notes/n1',
+        3
+      )
+      const { client: client2, messages: messages2 } = await createSocketClient(
+        PORT,
+        '/api/notes/n1',
+        3
+      )
+
+      const updatedNote1 = _.cloneDeep(NOTE_1) as any
+      updatedNote1.content[0].children[0].text = 'AAA'
+
+      const updatedNote2 = _.cloneDeep(NOTE_1) as any
+      updatedNote1.content[2].children[0].text = 'BBB'
+
+      client1.send(JSON.stringify(updatedNote1))
+      client2.send(JSON.stringify(updatedNote2))
+
+      await waitForSocketState(client1, client1.CLOSED)
+      await waitForSocketState(client2, client2.CLOSED)
+      expect(messages1).toHaveLength(3)
+      expect(messages2).toHaveLength(3)
+      expect(messages1[2]).toEqual(messages2[2])
+      expect((messages1[2] as any).content[2].children[0].text).toEqual('BBB')
+      expect((messages1[2] as any).content[0].children[0].text).toEqual('AAA')
     })
   })
 })

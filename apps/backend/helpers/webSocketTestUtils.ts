@@ -26,7 +26,7 @@ async function createSocketClient(
       client.close()
     }
   })
-  return { client: client, messages: messages }
+  return { client, messages }
 }
 
 export { waitForSocketState, createSocketClient }

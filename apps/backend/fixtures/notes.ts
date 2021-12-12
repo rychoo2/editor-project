@@ -6,20 +6,20 @@ export const NOTE_1 = {
   content: [
     {
       type: 'heading-one',
-      children: [{ text: 'Action Items' }],
+      children: [{ text: 'Action Items' }]
     },
     {
       type: 'list-item',
-      children: [{ text: 'Get milk from the store' }],
+      children: [{ text: 'Get milk from the store' }]
     },
     {
       type: 'list-item',
-      children: [{ text: 'Finish engineering test' }],
+      children: [{ text: 'Finish engineering test' }]
     },
     {
       type: 'list-item',
-      children: [{ text: 'Call mom about vacation' }],
-    },
+      children: [{ text: 'Call mom about vacation' }]
+    }
   ] as unknown as Array<Descendant>
 }
 
@@ -36,34 +36,32 @@ export const NOTE_2 = {
         { text: 'much', italic: true },
         { text: ' better than a ' },
         { text: '<textarea>', code: true },
-        { text: '!' },
-      ],
+        { text: '!' }
+      ]
     },
     {
       type: 'paragraph',
       children: [
         {
-          text:
-            "Since it's rich text, you can do things like turn a selection of text ",
+          text: "Since it's rich text, you can do things like turn a selection of text "
         },
         { text: 'bold', bold: true },
         {
-          text:
-            ', or add a semantically rendered block quote in the middle of the page, like this:',
-        },
-      ],
+          text: ', or add a semantically rendered block quote in the middle of the page, like this:'
+        }
+      ]
     },
     {
       type: 'list-item',
-      children: [{ text: 'Here is a bullet' }],
+      children: [{ text: 'Here is a bullet' }]
     },
     {
       type: 'block-quote',
-      children: [{ text: 'A wise quote.' }],
+      children: [{ text: 'A wise quote.' }]
     },
     {
       type: 'paragraph',
-      children: [{ text: 'Try it out for yourself!' }],
-    },
+      children: [{ text: 'Try it out for yourself!' }]
+    }
   ] as unknown as Array<Descendant>
 }
