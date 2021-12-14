@@ -9,6 +9,8 @@ import {
   waitForSocketState
 } from '../helpers/webSocketTestUtils'
 import _ from 'lodash'
+import { NoteUpdateRequest } from './notes'
+import { NotePatch } from '../ot/colaborative-note'
 
 const PORT = 3002
 
@@ -49,7 +51,7 @@ describe('Notes controller', () => {
   })
 
   describe('WS /api/notes/{id}', () => {
-    it('gets ititial note content when sending empty message', async () => {
+    it('gets ititial value from firestore', async () => {
       const { client, messages } = await createSocketClient(
         PORT,
         '/api/notes/n1',
@@ -57,65 +59,53 @@ describe('Notes controller', () => {
       )
       client.send('')
       await waitForSocketState(client, client.CLOSED)
-      client.close()
-      expect(messages).toContainEqual(NOTE_1)
+      const msg = messages[0] as unknown as NotePatch
+      expect(msg.snapshot).toEqual(NOTE_1)
     })
 
-    it('gets updated note content when modified from outside', async () => {
+    it('saves new value to firestore', async () => {
       const { client, messages } = await createSocketClient(
         PORT,
         '/api/notes/n1',
-        2
+        1
       )
-      await firebase
-        .collection('notes')
-        .doc(NOTE_1.id)
-        .set({ ...NOTE_1, title: 'New Test Title' })
+      const udpateRequest: NoteUpdateRequest = {
+        newValue: { ...NOTE_1, title: 'Another Test Title' },
+        lastKnownVersion: 0
+      }
+      client.send(JSON.stringify(udpateRequest))
       await waitForSocketState(client, client.CLOSED)
-      expect(messages).toHaveLength(2)
-      expect(messages[1]).toHaveProperty('title', 'New Test Title')
+      const doc = await firebase.collection('notes').doc(NOTE_1.id).get()
+      expect(doc.data()).toHaveProperty('title', 'Another Test Title')
     })
 
-    it('saves new value sent to websocket if non empty', async () => {
+    it('returnes updated note value when update sent to websocket', async () => {
       const { client, messages } = await createSocketClient(
         PORT,
         '/api/notes/n1',
-        2
+        1
       )
-      client.send(JSON.stringify({ ...NOTE_1, title: 'Another Test Title' }))
+      const udpateRequest: NoteUpdateRequest = {
+        newValue: { ...NOTE_1, title: 'Another Test Title' },
+        lastKnownVersion: 0
+      }
+      client.send(JSON.stringify(udpateRequest))
       await waitForSocketState(client, client.CLOSED)
-      expect(messages).toHaveLength(2)
-      expect(messages[1]).toHaveProperty('title', 'Another Test Title')
+      expect(messages).toHaveLength(1)
+      const msg = messages[0] as unknown as NotePatch
+      expect(msg.snapshot).toHaveProperty('title', 'Another Test Title')
     })
 
-    it('sends updated value to other connected clients', async () => {
+    it('includes changes from others in the update response', async () => {
       const { client: client1, messages: messages1 } = await createSocketClient(
         PORT,
         '/api/notes/n1',
-        2
+        1
       )
       const { client: client2, messages: messages2 } = await createSocketClient(
         PORT,
         '/api/notes/n1',
-        2
-      )
-      client1.send(JSON.stringify({ ...NOTE_1, title: 'Updated Test Title' }))
-      await waitForSocketState(client1, client1.CLOSED)
-      await waitForSocketState(client2, client2.CLOSED)
-      expect(messages2).toHaveLength(2)
-      expect(messages2[1]).toHaveProperty('title', 'Updated Test Title')
-    })
-
-    it('merges simultanous changes from connected clients', async () => {
-      const { client: client1, messages: messages1 } = await createSocketClient(
-        PORT,
-        '/api/notes/n1',
-        3
-      )
-      const { client: client2, messages: messages2 } = await createSocketClient(
-        PORT,
-        '/api/notes/n1',
-        3
+        1
       )
 
       const updatedNote1 = _.cloneDeep(NOTE_1) as any
@@ -124,16 +114,59 @@ describe('Notes controller', () => {
       const updatedNote2 = _.cloneDeep(NOTE_1) as any
       updatedNote1.content[2].children[0].text = 'BBB'
 
-      client1.send(JSON.stringify(updatedNote1))
-      client2.send(JSON.stringify(updatedNote2))
+      client1.send(
+        JSON.stringify({ newValue: updatedNote1, lastKnownVersion: 0 })
+      )
+      await waitForSocketState(client1, client1.CLOSED)
 
+      client2.send(
+        JSON.stringify({ newValue: updatedNote2, lastKnownVersion: 0 })
+      )
+
+      await waitForSocketState(client2, client2.CLOSED)
+      const msg = messages2[0] as unknown as NotePatch
+      expect(msg.snapshot.content[2].children[0].text).toEqual('BBB')
+      expect(msg.snapshot.content[0].children[0].text).toEqual('AAA')
+    })
+
+    it.skip('sends updated value immediately to all connected clients', async () => {
+      const { client: client1, messages: messages1 } = await createSocketClient(
+        PORT,
+        '/api/notes/n1',
+        1
+      )
+      const { client: client2, messages: messages2 } = await createSocketClient(
+        PORT,
+        '/api/notes/n1',
+        1
+      )
+      const udpateRequest: NoteUpdateRequest = {
+        newValue: { ...NOTE_1, title: 'Updated Test Title' },
+        lastKnownVersion: 0
+      }
+      client1.send(JSON.stringify(udpateRequest))
       await waitForSocketState(client1, client1.CLOSED)
       await waitForSocketState(client2, client2.CLOSED)
-      expect(messages1).toHaveLength(3)
-      expect(messages2).toHaveLength(3)
-      expect(messages1[2]).toEqual(messages2[2])
-      expect((messages1[2] as any).content[2].children[0].text).toEqual('BBB')
-      expect((messages1[2] as any).content[0].children[0].text).toEqual('AAA')
+      expect(messages2).toHaveLength(1)
+      const msg = messages2[0] as unknown as NotePatch
+
+      expect(msg.snapshot).toHaveProperty('title', 'Updated Test Title')
+    })
+
+    it.skip('broadcast updated note content when modified directly on firebase', async () => {
+      const { client, messages } = await createSocketClient(
+        PORT,
+        '/api/notes/n1',
+        1
+      )
+      await firebase
+        .collection('notes')
+        .doc(NOTE_1.id)
+        .set({ ...NOTE_1, title: 'New Test Title' })
+      await waitForSocketState(client, client.CLOSED)
+      expect(messages).toHaveLength(1)
+      const msg = messages[0] as unknown as NotePatch
+      expect(msg.snapshot).toHaveProperty('title', 'New Test Title')
     })
   })
 })

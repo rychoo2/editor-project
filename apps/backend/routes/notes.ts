@@ -1,8 +1,9 @@
 import express, { RequestHandler, Response } from 'express'
 import { WebsocketRequestHandler } from 'express-ws'
 
-import firebase from '../firebase'
 import { Note, NoteInfo } from '../models'
+import { CollaborativeNote, NotePatch } from '../ot/colaborative-note'
+import { FirebaseRepository } from '../repositories/firebase.repository'
 
 // Patch `express.Router` to support `.ws()` without needing to pass around a `ws`-ified app.
 // https://github.com/HenningM/express-ws/issues/86
@@ -11,43 +12,51 @@ const patch = require('express-ws/lib/add-ws-method')
 patch.default(express.Router)
 
 const router = express.Router()
+const repo = new FirebaseRepository()
+const notesStorage: { [id: string]: CollaborativeNote } = {}
 
 export interface NotesResponse {
   notes: Array<NoteInfo>
+}
+
+export interface NoteUpdateRequest {
+  newValue: Note
+  lastKnownVersion: number
 }
 
 const notesHandler: RequestHandler = async (
   _req,
   res: Response<NotesResponse>
 ) => {
-  const notes = await firebase.collection('notes').select('id', 'title').get()
-  const result = notes.docs.map((doc) => doc.data() as NoteInfo)
+  const notes = await repo.getNotes()
   res.json({
-    notes: result
+    notes
   })
 }
 
-const noteHandler: WebsocketRequestHandler = (ws, req) => {
-  const document = firebase.collection('notes').doc(req.params.id)
-  const closeHandle = document.onSnapshot((doc) => {
-    const result = doc.data() as NotesResponse
-    return ws.send(JSON.stringify(result))
-  })
-
+const noteHandler: WebsocketRequestHandler = async (ws, req) => {
   ws.on('message', async (data) => {
     const msg = data.toString()
+    const noteState: CollaborativeNote = await getNoteState(req.params.id)
+    var lastNoteVersion: NotePatch
     if (msg) {
-      const note = JSON.parse(msg) as Note
-      await document.set(note)
+      const noteUpdate = JSON.parse(msg) as NoteUpdateRequest
+      lastNoteVersion = noteState.update(
+        noteUpdate.newValue,
+        noteUpdate.lastKnownVersion
+      )
+      repo.updateNote(lastNoteVersion.snapshot).then()
     } else {
-      const doc = await document.get()
-      ws.send(JSON.stringify(doc.data()))
+      lastNoteVersion = noteState.get()
     }
+    ws.send(JSON.stringify(lastNoteVersion))
   })
+}
 
-  ws.on('close', () => {
-    closeHandle()
-  })
+async function getNoteState(id: string): Promise<CollaborativeNote> {
+  notesStorage[id] =
+    notesStorage[id] || new CollaborativeNote(await repo.getNote(id))
+  return notesStorage[id]
 }
 
 router.get('/', notesHandler)
