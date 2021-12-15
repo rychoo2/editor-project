@@ -25,6 +25,7 @@ export class CollaborativeNote {
   }
 
   public update(note: Note, lastKnownVersionId: number): NotePatch {
+    console.log('received update', note, lastKnownVersionId)
     const baseNoteState = this.versions[lastKnownVersionId]
     const previousValue = jsonpatch.deepClone(baseNoteState.snapshot)
     const patch = jsonpatch.compare(previousValue, note)

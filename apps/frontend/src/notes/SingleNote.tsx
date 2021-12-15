@@ -7,13 +7,17 @@ import { Paper, TextField, Badge, BadgeTypeMap } from '@mui/material'
 import { Descendant } from 'slate'
 import { preventOverflow } from '@popperjs/core'
 import { off } from 'process'
+import { NotePatch } from '../../../backend/ot/colaborative-note'
+import { NoteUpdateRequest } from '../../../backend/routes/notes'
+import _ from 'lodash'
+import { QuerySnapshot } from '@google-cloud/firestore'
 
 interface SingleNoteProps {
   id: string
 }
 
 const Home: React.FC<SingleNoteProps> = ({ id }) => {
-  const { note, readyState, sendMessage } = useNote(id)
+  const { note: remoteNote, readyState, sendMessage } = useNote(id)
 
   const connectionStatusColor = {
     [ReadyState.CONNECTING]: 'info',
@@ -23,32 +27,40 @@ const Home: React.FC<SingleNoteProps> = ({ id }) => {
     [ReadyState.UNINSTANTIATED]: 'error',
   }[readyState] as BadgeTypeMap['props']['color']
 
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState([] as Descendant[]);
+  const [localNote, setLocalNote] = useState({} as NotePatch);
 
   useEffect(() => {
-    if (note) {
-      if(note.title != title){
-        note.title = title;
-        sendMessage(JSON.stringify(note))
-        console.log("content update", note)
+    if (localNote) {
+      if(!_.isEqual(remoteNote?.snapshot, localNote?.snapshot)){
+        const noteUpdateRequest: NoteUpdateRequest = {lastKnownVersion: localNote.version, newValue: localNote.snapshot}
+        sendMessage(JSON.stringify(noteUpdateRequest))
+        console.log("content update", localNote)
       }
     }
-  }, [title])
+  }, [localNote])
 
   useEffect(() => {
-    if(note){
-      console.log("content update from outside", note)
-      setTitle(note.title)
-      setContent(note.content)
+    if(remoteNote){
+      if(!_.isEqual(remoteNote?.snapshot, localNote?.snapshot)){
+        setLocalNote(remoteNote)
+      }
     }
-  }, [note])
+  }, [remoteNote])
 
-  return content && title ? (
+  function setTitle(title: string) {
+    setLocalNote({...localNote, snapshot: {...localNote.snapshot, title}})
+  }
+
+  function setContent(content: any) {
+    setLocalNote({...localNote, snapshot: {...localNote.snapshot, content}})
+  }
+
+
+  return localNote?.snapshot ? (
     <>
       <Badge color={connectionStatusColor} variant="dot" sx={{ width: '100%' }}>
         <TextField
-          value={title}
+          value={localNote.snapshot.title}
           onChange={e => setTitle(e.target.value)}
           variant="standard"
           fullWidth={true}
@@ -63,7 +75,7 @@ const Home: React.FC<SingleNoteProps> = ({ id }) => {
           flexDirection: 'column',
         }}
       >
-        <Editor initialValue={content} onChange={setContent} />
+        <Editor value={localNote.snapshot.content} onChange={setContent} />
       </Paper>
     </>
   ) : null

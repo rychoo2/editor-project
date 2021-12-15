@@ -5,6 +5,7 @@ import { NotesResponse } from '../../../backend/routes/notes'
 
 import useWebSocket, { ReadyState } from 'react-use-websocket'
 import { Note } from '../../../backend/models'
+import { NotePatch } from '../../../backend/ot/colaborative-note'
 
 // If you want to use GraphQL API or libs like Axios, you can create your own fetcher function.
 // Check here for more examples: https://swr.vercel.app/docs/data-fetching
@@ -39,7 +40,7 @@ export const useNote = (id: string) => {
 
   return {
     note: useMemo(
-      () => lastMessage && (JSON.parse(lastMessage.data) as Note),
+      () => lastMessage && (JSON.parse(lastMessage.data) as NotePatch),
       [lastMessage]
     ),
     readyState,

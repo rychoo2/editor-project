@@ -21,25 +21,26 @@ declare module 'slate' {
 }
 
 interface EditorProps {
-  initialValue?: Descendant[]
+  value?: Descendant[]
   placeholder?: string
   onChange?: (v: Descendant[]) => void
 }
 
-export const Editor: React.FC<EditorProps> = ({ initialValue = [], placeholder, onChange }) => {
-  const [value, setValue] = useState<Array<Descendant>>(initialValue)
+export const Editor: React.FC<EditorProps> = ({ value = [], placeholder, onChange }) => {
+
   const renderElement = useCallback(props => <CustomElement {...props} />, [])
   const renderLeaf = useCallback(props => <CustomLeaf {...props} />, [])
   const editor = useMemo(() => withHistory(withReact(createEditor())), [])
-  
-  useEffect(() => {
-    if(onChange) {
-      onChange(value)
-    }
-  }, [value])
 
   return (
-    <Slate editor={editor} value={value} onChange={value => setValue(value)}>
+    <Slate editor={editor} value={value} onChange={value =>  {
+      const isAstChange = editor.operations.some(
+        op => 'set_selection' !== op.type
+      )
+      if (isAstChange) {
+        onChange && onChange(value)
+      }
+    }}>
       <EditorToolbar />
       <Editable
         renderElement={renderElement}

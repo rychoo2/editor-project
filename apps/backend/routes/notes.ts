@@ -49,7 +49,10 @@ const noteHandler: WebsocketRequestHandler = async (ws, req) => {
     } else {
       lastNoteVersion = noteState.get()
     }
-    ws.send(JSON.stringify(lastNoteVersion))
+    console.log('sending update', lastNoteVersion)
+    if (lastNoteVersion) {
+      ws.send(JSON.stringify(lastNoteVersion))
+    }
   })
 }
 
