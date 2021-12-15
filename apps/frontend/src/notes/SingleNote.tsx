@@ -4,13 +4,9 @@ import { useNote } from './hooks'
 import { ReadyState } from 'react-use-websocket'
 
 import { Paper, TextField, Badge, BadgeTypeMap } from '@mui/material'
-import { Descendant } from 'slate'
-import { preventOverflow } from '@popperjs/core'
-import { off } from 'process'
 import { NotePatch } from '../../../backend/ot/colaborative-note'
 import { NoteUpdateRequest } from '../../../backend/routes/notes'
 import _ from 'lodash'
-import { QuerySnapshot } from '@google-cloud/firestore'
 
 interface SingleNoteProps {
   id: string
